@@ -1,319 +1,342 @@
-# OpenClaw Architecture Deep Dive
+# OpenClaw Architecture Reference (Full)
 
-## System overview
+This document is a practical, implementation-oriented architecture guide for the OpenClaw repository.
+It is written to help you understand how the system actually works in code: startup, gateway transport,
+routing/session boundaries, agent execution, channels/plugins, cron, memory, nodes, and security controls.
 
-OpenClaw is a multi-channel AI gateway and agent runtime. A long-running Gateway process owns messaging/channel connections, exposes a typed WebSocket/HTTP control plane, and orchestrates agent runs, sessions, cron jobs, plugin extensions, and device nodes.
+## 1. System model
 
-Core execution shape:
+OpenClaw is a long-running AI control plane (Gateway) plus channel adapters and agent runtime.
+One gateway instance on a host owns channel connectivity and session state.
 
-1. Inbound event arrives from a channel plugin.
-2. Route resolver selects `agentId` + canonical `sessionKey`.
-3. Auto-reply pipeline applies commands/directives/policies.
-4. Agent runtime executes model/tool loop (streamed events).
-5. Session metadata/transcript is updated.
-6. Output is delivered to target channel(s) via outbound adapters.
+High-level data flow:
 
----
+1. Inbound message/event arrives from channel runtime/plugin.
+2. Route resolution maps inbound context to `agentId` and canonical `sessionKey`.
+3. Auto-reply pipeline parses directives/commands/policies.
+4. Agent runtime executes model+tool loop with per-session queueing.
+5. Session metadata + transcript are persisted.
+6. Outbound delivery sends final payloads to channel destinations.
+7. Gateway broadcasts runtime events (`agent`, `chat`, `presence`, etc.) to clients.
 
-## Repository structure
+## 2. Repository topology
 
-- `src/`
-  - `gateway/`: WS/HTTP control plane, auth, method handlers, protocol schemas.
-  - `agents/`: model runtime, tool policies, embedded PI runner, fallbacks, auth profiles.
-  - `auto-reply/`: inbound message orchestration, directives, queueing, typing, run dispatch.
-  - `channels/`: channel abstractions, docking metadata, channel plugin interfaces.
-  - `config/`: config IO, validation, defaults, migration, includes/env substitution.
-  - `cron/`: persistent scheduler and isolated/main session execution flows.
-  - `memory/`: memory index/search managers and embedding backends.
-  - `routing/`: agent/session key derivation and binding-based route resolution.
-  - `sessions/`: session policy helpers and metadata behavior.
-  - `plugins/`: plugin discovery, manifest validation, runtime registry, hook wiring.
-- `extensions/*`: installable/bundled plugin packages (channels, memory, auth providers, etc.).
-- `ui/`: Control UI web client.
-- `apps/{macos,ios,android,shared}`: native clients/nodes.
-- `packages/{clawdbot,moltbot}`: compatibility CLI shims forwarding to OpenClaw.
+- Core runtime: `src/`
+- Extension packages: `extensions/*`
+- Control UI: `ui/`
+- Native clients/nodes: `apps/{macos,ios,android,shared}`
+- Compatibility shims: `packages/{clawdbot,moltbot}`
+- Documentation: `docs/`
 
----
+Largest implementation areas (by file count):
 
-## Startup and CLI flow
+- `src/agents`
+- `src/commands`
+- `src/auto-reply`
+- `src/gateway`
+- `src/infra`
+- `src/cli`
+- `src/config`
 
-Primary bootstrap path:
+## 3. Startup and CLI bootstrap
 
-- `openclaw.mjs` → loads compiled entrypoint (`dist/entry.*`).
-- `src/entry.ts` normalizes env/argv and calls CLI runtime.
-- `src/cli/run-main.ts` executes route-first command handling for faster startup.
-- `src/cli/program/*` registers command tree with lazy sub-CLI loading.
+### 3.1 Entrypoints
 
-Design intent:
+- CLI bin: `openclaw.mjs`
+- Runtime entry: `src/entry.ts`
+- CLI orchestration: `src/cli/run-main.ts`
+- Command registration: `src/cli/program/*`
 
-- Keep startup fast for frequent operations (`status`, `health`, `sessions`).
-- Avoid loading heavyweight modules unless needed.
+### 3.2 Behavior
 
----
+- Environment normalization + warning filters are installed early.
+- Route-first execution path handles common commands quickly.
+- Full command tree is lazily loaded to reduce startup overhead.
 
-## Gateway control plane
+### 3.3 Command surface
 
-Key files:
+Core command families include gateway control, status/health/sessions, channels, models, cron,
+security, skills/plugins, docs/helpers, device/node control.
 
-- `src/gateway/server.impl.ts`
-- `src/gateway/server-http.ts`
-- `src/gateway/server/ws-connection.ts`
-- `src/gateway/server/ws-connection/message-handler.ts`
-- `src/gateway/server-methods.ts`
+## 4. Gateway architecture
 
-Gateway responsibilities:
+### 4.1 Core gateway files
 
-- Own channel connectivity and runtime state.
-- Serve typed WebSocket RPC/event transport.
-- Serve HTTP APIs (OpenAI-compatible, OpenResponses, tools invoke, hooks, Control UI).
-- Manage cron, heartbeat, node registry, pairing workflows, and plugin-provided handlers.
-- Broadcast presence/health/agent/chat events to connected clients.
+- Server lifecycle: `src/gateway/server.impl.ts`
+- HTTP serving + hooks/UI/API wiring: `src/gateway/server-http.ts`
+- WS attach and connection handling:
+  - `src/gateway/server-ws-runtime.ts`
+  - `src/gateway/server/ws-connection.ts`
+  - `src/gateway/server/ws-connection/message-handler.ts`
+- Method registry/dispatch:
+  - `src/gateway/server-methods-list.ts`
+  - `src/gateway/server-methods.ts`
 
-Protocol model:
+### 4.2 Responsibilities
 
-- First WS frame must be `connect`.
-- Request frames (`req`) get typed response frames (`res`).
-- Event frames push async state (`agent`, `chat`, `presence`, `health`, etc.).
-- Schema validation enforced via TypeBox + AJV (`src/gateway/protocol/*`).
+- Starts WS + HTTP servers.
+- Loads and validates config (with migration/auto-enable behavior).
+- Initializes channel manager, cron service, heartbeat, discovery, node registry.
+- Loads plugin-provided methods/channels/http routes.
+- Maintains global runtime state and broadcasts events.
 
----
+### 4.3 Protocol
 
-## Authentication, authorization, pairing
+- First WS request must be `connect`.
+- Request/response/event frames are schema-validated.
+- Features/methods/events are declared in handshake payload.
+- Gateway emits snapshots (`presence`, `health`) and state versions.
 
-Core auth path:
+Protocol schema and validation:
 
-- `src/gateway/auth.ts`
+- `src/gateway/protocol/index.ts`
+- `src/gateway/protocol/schema/*`
 
-Supported gateway auth modes:
+## 5. Authentication, pairing, and authorization
 
-- Token
-- Password
-- Tailscale identity-based path (config-gated)
+### 5.1 Gateway auth
 
-Connection hardening:
+Implementation: `src/gateway/auth.ts`
 
-- Device identity signatures verified at connect.
-- Nonce challenge required for non-local contexts.
-- Pairing approval required for new device identities.
-- Role/scope checks enforced per method (`src/gateway/server-methods.ts`).
+Auth modes:
 
-Role model:
+- token
+- password
+- tailscale-derived path (config gated)
 
-- `operator` clients: control APIs with scope gates (`operator.read`, `operator.write`, `operator.admin`, etc.).
-- `node` clients: restricted to node-specific event/result surfaces.
+### 5.2 WS connect hardening
 
-Browser-side protections:
+In `src/gateway/server/ws-connection/message-handler.ts`:
 
-- Origin checks for Control UI/WebChat (`src/gateway/origin-check.ts`).
+- validates connect frame and protocol versions
+- verifies role and scopes
+- checks origin for Control UI/WebChat
+- verifies device identity/signature/timestamp/nonce
+- enforces pairing requirement for unknown or upgraded permission sets
+- issues/rotates device tokens
 
----
+### 5.3 Method authorization
 
-## Agent runtime and execution lanes
+`src/gateway/server-methods.ts` applies role/scope checks before method handler execution.
 
-Key files:
+Common scope levels:
 
-- `src/commands/agent.ts`
-- `src/agents/pi-embedded-runner/run.ts`
-- `src/agents/pi-embedded-subscribe.ts`
-- `src/process/command-queue.ts`
+- `operator.read`
+- `operator.write`
+- `operator.admin`
+- pairing/approval specialized scopes
 
-Execution characteristics:
+### 5.4 Browser origin control
 
-- Session-aware lane serialization prevents race conditions in shared context.
-- Optional global lane concurrency controls runtime throughput.
-- Model selection supports provider/model overrides and fallback chains.
-- Auth profile resolution includes cooldown/rotation behavior.
-- Agent stream emits lifecycle + assistant + tool events.
+- `src/gateway/origin-check.ts` enforces host/origin allow rules for browser clients.
 
-Output + persistence:
+## 6. Agent execution model
 
-- Session usage/model metadata is written back after runs.
-- Delivery layer optionally sends response payloads via channel adapters.
+### 6.1 Main path
 
----
+- Front door: `src/commands/agent.ts`
+- Embedded runner: `src/agents/pi-embedded-runner/run.ts`
+- Streaming bridge: `src/agents/pi-embedded-subscribe.ts`
 
-## Session model
+### 6.2 Steps per run
 
-Key files:
+1. Resolve session, workspace, agent scope, run context.
+2. Resolve model/provider defaults + overrides + fallback plan.
+3. Resolve auth profile and provider credentials.
+4. Queue execution on session lane (and optional global lane).
+5. Execute embedded model/tool loop.
+6. Stream lifecycle/assistant/tool events.
+7. Persist session metadata/tokens/model state.
+8. Deliver payloads (if deliver enabled).
+
+### 6.3 Lane/queueing model
+
+- queue engine: `src/process/command-queue.ts`
+- lane IDs: `src/process/lanes.ts`
+- gateway lane tuning: `src/gateway/server-lanes.ts`
+
+Goal: deterministic session consistency under concurrent inputs.
+
+## 7. Sessions and routing
+
+### 7.1 Routing
+
+- route resolver: `src/routing/resolve-route.ts`
+- key helpers: `src/routing/session-key.ts`
+
+Inputs considered:
+
+- channel, account, peer, parent peer, guild/team, role IDs
+- configured bindings and default agent selection
+
+### 7.2 Session key model
+
+Canonical namespace is agent-scoped (`agent:<agentId>:...`).
+
+DM scope controls context isolation:
+
+- `main`
+- `per-peer`
+- `per-channel-peer`
+- `per-account-channel-peer`
+
+### 7.3 Store/transcripts
+
+Session store and metadata:
 
 - `src/config/sessions/store.ts`
 - `src/config/sessions/metadata.ts`
-- `src/routing/session-key.ts`
-- `src/routing/resolve-route.ts`
 
-Session identity:
+On disk (gateway host):
 
-- Canonical key format anchored by `agent:<agentId>:...`.
-- DM scope can collapse or isolate DM context (`main`, `per-peer`, `per-channel-peer`, `per-account-channel-peer`).
-- Group/channel/thread sessions remain isolated by conversation identity.
+- `~/.openclaw/agents/<agentId>/sessions/sessions.json`
+- `~/.openclaw/agents/<agentId>/sessions/*.jsonl`
 
-Persistence:
+### 7.4 Security implications
 
-- Session map: `~/.openclaw/agents/<agentId>/sessions/sessions.json`
-- Transcript logs: `~/.openclaw/agents/<agentId>/sessions/*.jsonl`
+- Shared DM scope in multi-user ingress can leak context.
+- Send policy and route metadata are important guardrails.
 
-Important behavior:
+## 8. Auto-reply orchestration
 
-- Route/binding logic can map by channel/account/peer/guild/team/roles.
-- Session metadata includes delivery/origin fields for explainability and routing continuity.
+Main orchestrator: `src/auto-reply/reply/get-reply.ts`
 
----
+Subsystem responsibilities:
 
-## Auto-reply orchestration
+- finalize inbound context
+- command/directive parsing
+- model/thinking/verbose/session reset handling
+- queue and follow-up behavior
+- typing and block streaming controls
+- run dispatch into agent runtime
 
-Key file:
+This layer is the glue between channel envelopes and executable agent runs.
 
-- `src/auto-reply/reply/get-reply.ts`
+## 9. Channels and plugin architecture
 
-Pipeline stages:
+### 9.1 Channel abstraction
 
-- Finalize inbound context.
-- Resolve command authorization and command/directive semantics.
-- Apply reset/model/thinking/verbose and queue controls.
-- Execute inline actions when applicable.
-- Run agent path with typing/streaming controls.
+- Types: `src/channels/plugins/types.core.ts`
+- Dock behavior map: `src/channels/dock.ts`
+- Registry and normalization: `src/channels/registry.ts`
 
-This layer is the high-level “message brain” connecting raw inbound messages to agent execution.
+### 9.2 Plugin runtime
 
----
+- discovery: `src/plugins/discovery.ts`
+- loader: `src/plugins/loader.ts`
+- registry: `src/plugins/registry.ts`
+- active runtime state: `src/plugins/runtime.ts`
 
-## Channels and extension architecture
+### 9.3 Extension packages
 
-Channel abstraction:
+Examples:
 
-- `src/channels/plugins/types.core.ts`
-- `src/channels/dock.ts`
-- `src/channels/registry.ts`
+- `extensions/telegram`
+- `extensions/whatsapp`
+- `extensions/slack`
+- `extensions/discord`
+- `extensions/memory-core`
+- many additional channels/providers/features
 
-Plugin system:
+### 9.4 Trust model
 
-- `src/plugins/discovery.ts`
-- `src/plugins/loader.ts`
-- `src/plugins/registry.ts`
-- `src/plugins/runtime.ts`
+Plugins are in-process and should be treated as trusted runtime code.
+Validation protects registration/schema consistency, not behavioral sandboxing.
 
-How extensions participate:
+## 10. HTTP APIs
 
-- Register channel implementations, tools, hooks, gateway methods, HTTP routes, CLI hooks.
-- `extensions/*` packages provide concrete integrations (telegram, whatsapp, matrix, memory-core, etc.).
+- OpenAI-compatible endpoint: `src/gateway/openai-http.ts`
+- OpenResponses endpoint: `src/gateway/openresponses-http.ts`
+- Direct tools invoke: `src/gateway/tools-invoke-http.ts`
+- Shared HTTP mux + hooks/UI: `src/gateway/server-http.ts`
 
-Trust model:
+Controls used:
 
-- Plugins execute in-process; they are trusted code at runtime.
-- Loader validates schema and registration conflicts but does not sandbox plugin code.
+- shared auth checks
+- body-size and parse guards
+- schema checks and policy checks
+- hook auth throttling and strict token checks
 
----
+## 11. Cron subsystem
 
-## Cron and automations
-
-Key files:
-
-- `src/cron/service.ts`
-- `src/cron/service/ops.ts`
-- `src/cron/isolated-agent/run.ts`
+- service wrapper: `src/cron/service.ts`
+- operation logic: `src/cron/service/ops.ts`
+- isolated agent turns: `src/cron/isolated-agent/run.ts`
 
 Modes:
 
-- Main-session wake/system-event jobs.
-- Isolated agent-turn jobs in dedicated cron sessions.
+- main-session system-event wake jobs
+- isolated agent-turn jobs in `cron:<jobId>` session space
 
-Scheduler state is persistent and survives restarts.
+State is persisted and survives restarts.
 
----
+## 12. Nodes and device runtime
 
-## Node/device subsystem
+- node registry: `src/gateway/node-registry.ts`
+- node methods: `src/gateway/server-methods/nodes.ts`
+- node event bridge: `src/gateway/server-node-events.ts`
 
-Key files:
+Node clients connect with role `node`, advertise caps/commands, and support `node.invoke` workflows.
+Pairing and tokens gate trust and command surfaces.
 
-- `src/gateway/node-registry.ts`
-- `src/gateway/server-methods/nodes.ts`
-- `src/gateway/server-node-events.ts`
+## 13. Memory subsystem
 
-Capabilities:
+- manager/search/index files in `src/memory/*`
+- plugin exposure in `extensions/memory-core/index.ts`
 
-- Paired node clients (macOS/iOS/Android/headless) connect as `role: node`.
-- Gateway can invoke node commands (`node.invoke`) and receive results/events.
-- Node events can feed session context and trigger heartbeat/system events.
+Memory model:
 
-Security:
+- markdown files are durable source of truth
+- retrieval layer can use vector backends for semantic lookup
+- memory tools are exposed through plugin slot system
 
-- Pairing/token validation required.
-- Allowed command filtering enforced at connect/runtime.
+## 14. Config system
 
----
+- config IO: `src/config/io.ts`
+- validation: `src/config/validation.ts`
+- migration: `src/config/legacy-migrate.ts`
 
-## HTTP surfaces
+Features:
 
-Key files:
+- JSON5 parsing
+- include expansion
+- env substitution
+- defaults application
+- runtime overrides
+- duplicate agent dir checks
 
-- `src/gateway/openai-http.ts`
-- `src/gateway/openresponses-http.ts`
-- `src/gateway/tools-invoke-http.ts`
-- `src/gateway/server-http.ts`
+## 15. UI and apps
 
-Provides:
+- Control UI web app: `ui/`
+- macOS app: `apps/macos`
+- iOS app: `apps/ios`
+- Android app: `apps/android`
+- shared SDK/protocol: `apps/shared/OpenClawKit`
 
-- OpenAI-style chat completions endpoint.
-- OpenResponses endpoint with tool/file/image flows.
-- Direct tools invoke endpoint.
-- Hook ingestion with token-based auth.
+All clients integrate through gateway protocol semantics and pairing/auth models.
 
-Controls:
+## 16. Security controls and residual risks
 
-- Shared auth checks via gateway auth.
-- Request validation and body limits.
-- URL/file/media policy controls for ingestion paths.
+Implemented controls:
 
----
+- strict WS handshake + typed schema validation
+- gateway token/password auth options
+- device signature + nonce + pairing checks
+- role/scope method authorization
+- browser origin checks
+- tool/send/session policy layers
+- security audit command surface
 
-## Memory subsystem
+Residual risks to manage operationally:
 
-Key files:
+- plugin trust boundary (in-process code)
+- permissive tool policies + untrusted content
+- DM scope misconfiguration in multi-user deployments
+- external ingress tools without restrictive allowlists
 
-- `src/memory/manager.ts`
-- `src/memory/search-manager.ts`
-- `extensions/memory-core/index.ts`
+## 17. Fast code-reading path
 
-Model:
-
-- Markdown files are source of truth.
-- Optional vector retrieval/indexing backends provide semantic recall.
-- Memory tools are exposed via plugin slot (`memory_search`, `memory_get`).
-
----
-
-## Security posture summary
-
-Primary controls implemented in code:
-
-- Strict WS handshake + protocol schema validation.
-- Gateway auth modes + optional tailscale identity path.
-- Device signature + nonce + pairing gates.
-- Role/scope authorization for gateway method access.
-- Browser origin checks for UI clients.
-- Session/send policy constraints.
-- Plugin registration validation and conflict detection.
-- Security auditing/fix CLI (`openclaw security audit`).
-
-Residual risk categories:
-
-- In-process plugin trust boundary.
-- Prompt/tool abuse if policies are too permissive.
-- Misconfigured DM scope in multi-user environments.
-- External data ingress via web/file tools without restrictive policy.
-
----
-
-## Operationally important invariants
-
-- One gateway instance is the session/control authority on a host.
-- Session keys are canonicalized; routing controls context boundaries.
-- Agent runs are lane-serialized per session for consistency.
-- Events are transient stream state; clients should refresh on reconnect.
-
----
-
-## Practical reading order for contributors
+Recommended file order for onboarding:
 
 1. `src/entry.ts`
 2. `src/cli/run-main.ts`
@@ -327,3 +350,8 @@ Residual risk categories:
 10. `src/config/sessions/store.ts`
 11. `src/plugins/loader.ts`
 12. `docs/concepts/architecture.md`
+
+## 18. Public export note
+
+This document is intended as the public, usable architecture artifact from this thread.
+No private keys/tokens/system prompts are included; content is limited to open-source architecture analysis.
