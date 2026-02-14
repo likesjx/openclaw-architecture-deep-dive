@@ -21,31 +21,31 @@ High-level data flow:
 
 ## 2. Repository topology
 
-- Core runtime: `src/`
-- Extension packages: `extensions/*`
-- Control UI: `ui/`
-- Native clients/nodes: `apps/{macos,ios,android,shared}`
-- Compatibility shims: `packages/{clawdbot,moltbot}`
-- Documentation: `docs/`
+- Core runtime: [`src/`](https://github.com/openclaw/openclaw/tree/main/src/)
+- Extension packages: [`extensions/*`](https://github.com/openclaw/openclaw/tree/main/extensions)
+- Control UI: [`ui/`](https://github.com/openclaw/openclaw/tree/main/ui/)
+- Native clients/nodes: [`apps/{macos,ios,android,shared}`](https://github.com/openclaw/openclaw/tree/main/apps)
+- Compatibility shims: [`packages/{clawdbot,moltbot}`](https://github.com/openclaw/openclaw/tree/main/packages)
+- Documentation: [`docs/`](https://github.com/openclaw/openclaw/tree/main/docs/)
 
 Largest implementation areas (by file count):
 
-- `src/agents`
-- `src/commands`
-- `src/auto-reply`
-- `src/gateway`
-- `src/infra`
-- `src/cli`
-- `src/config`
+- [`src/agents`](https://github.com/openclaw/openclaw/tree/main/src/agents)
+- [`src/commands`](https://github.com/openclaw/openclaw/tree/main/src/commands)
+- [`src/auto-reply`](https://github.com/openclaw/openclaw/tree/main/src/auto-reply)
+- [`src/gateway`](https://github.com/openclaw/openclaw/tree/main/src/gateway)
+- [`src/infra`](https://github.com/openclaw/openclaw/tree/main/src/infra)
+- [`src/cli`](https://github.com/openclaw/openclaw/tree/main/src/cli)
+- [`src/config`](https://github.com/openclaw/openclaw/tree/main/src/config)
 
 ## 3. Startup and CLI bootstrap
 
 ### 3.1 Entrypoints
 
-- CLI bin: `openclaw.mjs`
-- Runtime entry: `src/entry.ts`
-- CLI orchestration: `src/cli/run-main.ts`
-- Command registration: `src/cli/program/*`
+- CLI bin: [`openclaw.mjs`](https://github.com/openclaw/openclaw/blob/main/openclaw.mjs)
+- Runtime entry: [`src/entry.ts`](https://github.com/openclaw/openclaw/blob/main/src/entry.ts)
+- CLI orchestration: [`src/cli/run-main.ts`](https://github.com/openclaw/openclaw/blob/main/src/cli/run-main.ts)
+- Command registration: [`src/cli/program/*`](https://github.com/openclaw/openclaw/tree/main/src/cli/program)
 
 ### 3.2 Behavior
 
@@ -62,15 +62,15 @@ security, skills/plugins, docs/helpers, device/node control.
 
 ### 4.1 Core gateway files
 
-- Server lifecycle: `src/gateway/server.impl.ts`
-- HTTP serving + hooks/UI/API wiring: `src/gateway/server-http.ts`
+- Server lifecycle: [`src/gateway/server.impl.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server.impl.ts)
+- HTTP serving + hooks/UI/API wiring: [`src/gateway/server-http.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-http.ts)
 - WS attach and connection handling:
-  - `src/gateway/server-ws-runtime.ts`
-  - `src/gateway/server/ws-connection.ts`
-  - `src/gateway/server/ws-connection/message-handler.ts`
+  - [`src/gateway/server-ws-runtime.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-ws-runtime.ts)
+  - [`src/gateway/server/ws-connection.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server/ws-connection.ts)
+  - [`src/gateway/server/ws-connection/message-handler.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server/ws-connection/message-handler.ts)
 - Method registry/dispatch:
-  - `src/gateway/server-methods-list.ts`
-  - `src/gateway/server-methods.ts`
+  - [`src/gateway/server-methods-list.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-methods-list.ts)
+  - [`src/gateway/server-methods.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-methods.ts)
 
 ### 4.2 Responsibilities
 
@@ -89,14 +89,14 @@ security, skills/plugins, docs/helpers, device/node control.
 
 Protocol schema and validation:
 
-- `src/gateway/protocol/index.ts`
-- `src/gateway/protocol/schema/*`
+- [`src/gateway/protocol/index.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/protocol/index.ts)
+- [`src/gateway/protocol/schema/*`](https://github.com/openclaw/openclaw/tree/main/src/gateway/protocol/schema)
 
 ## 5. Authentication, pairing, and authorization
 
 ### 5.1 Gateway auth
 
-Implementation: `src/gateway/auth.ts`
+Implementation: [`src/gateway/auth.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/auth.ts)
 
 Auth modes:
 
@@ -106,7 +106,7 @@ Auth modes:
 
 ### 5.2 WS connect hardening
 
-In `src/gateway/server/ws-connection/message-handler.ts`:
+In [`src/gateway/server/ws-connection/message-handler.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server/ws-connection/message-handler.ts):
 
 - validates connect frame and protocol versions
 - verifies role and scopes
@@ -117,7 +117,7 @@ In `src/gateway/server/ws-connection/message-handler.ts`:
 
 ### 5.3 Method authorization
 
-`src/gateway/server-methods.ts` applies role/scope checks before method handler execution.
+[`src/gateway/server-methods.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-methods.ts) applies role/scope checks before method handler execution.
 
 Common scope levels:
 
@@ -128,15 +128,15 @@ Common scope levels:
 
 ### 5.4 Browser origin control
 
-- `src/gateway/origin-check.ts` enforces host/origin allow rules for browser clients.
+- [`src/gateway/origin-check.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/origin-check.ts) enforces host/origin allow rules for browser clients.
 
 ## 6. Agent execution model
 
 ### 6.1 Main path
 
-- Front door: `src/commands/agent.ts`
-- Embedded runner: `src/agents/pi-embedded-runner/run.ts`
-- Streaming bridge: `src/agents/pi-embedded-subscribe.ts`
+- Front door: [`src/commands/agent.ts`](https://github.com/openclaw/openclaw/blob/main/src/commands/agent.ts)
+- Embedded runner: [`src/agents/pi-embedded-runner/run.ts`](https://github.com/openclaw/openclaw/blob/main/src/agents/pi-embedded-runner/run.ts)
+- Streaming bridge: [`src/agents/pi-embedded-subscribe.ts`](https://github.com/openclaw/openclaw/blob/main/src/agents/pi-embedded-subscribe.ts)
 
 ### 6.2 Steps per run
 
@@ -151,9 +151,9 @@ Common scope levels:
 
 ### 6.3 Lane/queueing model
 
-- queue engine: `src/process/command-queue.ts`
-- lane IDs: `src/process/lanes.ts`
-- gateway lane tuning: `src/gateway/server-lanes.ts`
+- queue engine: [`src/process/command-queue.ts`](https://github.com/openclaw/openclaw/blob/main/src/process/command-queue.ts)
+- lane IDs: [`src/process/lanes.ts`](https://github.com/openclaw/openclaw/blob/main/src/process/lanes.ts)
+- gateway lane tuning: [`src/gateway/server-lanes.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-lanes.ts)
 
 Goal: deterministic session consistency under concurrent inputs.
 
@@ -161,8 +161,8 @@ Goal: deterministic session consistency under concurrent inputs.
 
 ### 7.1 Routing
 
-- route resolver: `src/routing/resolve-route.ts`
-- key helpers: `src/routing/session-key.ts`
+- route resolver: [`src/routing/resolve-route.ts`](https://github.com/openclaw/openclaw/blob/main/src/routing/resolve-route.ts)
+- key helpers: [`src/routing/session-key.ts`](https://github.com/openclaw/openclaw/blob/main/src/routing/session-key.ts)
 
 Inputs considered:
 
@@ -184,8 +184,8 @@ DM scope controls context isolation:
 
 Session store and metadata:
 
-- `src/config/sessions/store.ts`
-- `src/config/sessions/metadata.ts`
+- [`src/config/sessions/store.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/sessions/store.ts)
+- [`src/config/sessions/metadata.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/sessions/metadata.ts)
 
 On disk (gateway host):
 
@@ -199,7 +199,7 @@ On disk (gateway host):
 
 ## 8. Auto-reply orchestration
 
-Main orchestrator: `src/auto-reply/reply/get-reply.ts`
+Main orchestrator: [`src/auto-reply/reply/get-reply.ts`](https://github.com/openclaw/openclaw/blob/main/src/auto-reply/reply/get-reply.ts)
 
 Subsystem responsibilities:
 
@@ -216,26 +216,26 @@ This layer is the glue between channel envelopes and executable agent runs.
 
 ### 9.1 Channel abstraction
 
-- Types: `src/channels/plugins/types.core.ts`
-- Dock behavior map: `src/channels/dock.ts`
-- Registry and normalization: `src/channels/registry.ts`
+- Types: [`src/channels/plugins/types.core.ts`](https://github.com/openclaw/openclaw/blob/main/src/channels/plugins/types.core.ts)
+- Dock behavior map: [`src/channels/dock.ts`](https://github.com/openclaw/openclaw/blob/main/src/channels/dock.ts)
+- Registry and normalization: [`src/channels/registry.ts`](https://github.com/openclaw/openclaw/blob/main/src/channels/registry.ts)
 
 ### 9.2 Plugin runtime
 
-- discovery: `src/plugins/discovery.ts`
-- loader: `src/plugins/loader.ts`
-- registry: `src/plugins/registry.ts`
-- active runtime state: `src/plugins/runtime.ts`
+- discovery: [`src/plugins/discovery.ts`](https://github.com/openclaw/openclaw/blob/main/src/plugins/discovery.ts)
+- loader: [`src/plugins/loader.ts`](https://github.com/openclaw/openclaw/blob/main/src/plugins/loader.ts)
+- registry: [`src/plugins/registry.ts`](https://github.com/openclaw/openclaw/blob/main/src/plugins/registry.ts)
+- active runtime state: [`src/plugins/runtime.ts`](https://github.com/openclaw/openclaw/blob/main/src/plugins/runtime.ts)
 
 ### 9.3 Extension packages
 
 Examples:
 
-- `extensions/telegram`
-- `extensions/whatsapp`
-- `extensions/slack`
-- `extensions/discord`
-- `extensions/memory-core`
+- [`extensions/telegram`](https://github.com/openclaw/openclaw/tree/main/extensions/telegram)
+- [`extensions/whatsapp`](https://github.com/openclaw/openclaw/tree/main/extensions/whatsapp)
+- [`extensions/slack`](https://github.com/openclaw/openclaw/tree/main/extensions/slack)
+- [`extensions/discord`](https://github.com/openclaw/openclaw/tree/main/extensions/discord)
+- [`extensions/memory-core`](https://github.com/openclaw/openclaw/tree/main/extensions/memory-core)
 - many additional channels/providers/features
 
 ### 9.4 Trust model
@@ -245,10 +245,10 @@ Validation protects registration/schema consistency, not behavioral sandboxing.
 
 ## 10. HTTP APIs
 
-- OpenAI-compatible endpoint: `src/gateway/openai-http.ts`
-- OpenResponses endpoint: `src/gateway/openresponses-http.ts`
-- Direct tools invoke: `src/gateway/tools-invoke-http.ts`
-- Shared HTTP mux + hooks/UI: `src/gateway/server-http.ts`
+- OpenAI-compatible endpoint: [`src/gateway/openai-http.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/openai-http.ts)
+- OpenResponses endpoint: [`src/gateway/openresponses-http.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/openresponses-http.ts)
+- Direct tools invoke: [`src/gateway/tools-invoke-http.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/tools-invoke-http.ts)
+- Shared HTTP mux + hooks/UI: [`src/gateway/server-http.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-http.ts)
 
 Controls used:
 
@@ -259,9 +259,9 @@ Controls used:
 
 ## 11. Cron subsystem
 
-- service wrapper: `src/cron/service.ts`
-- operation logic: `src/cron/service/ops.ts`
-- isolated agent turns: `src/cron/isolated-agent/run.ts`
+- service wrapper: [`src/cron/service.ts`](https://github.com/openclaw/openclaw/blob/main/src/cron/service.ts)
+- operation logic: [`src/cron/service/ops.ts`](https://github.com/openclaw/openclaw/blob/main/src/cron/service/ops.ts)
+- isolated agent turns: [`src/cron/isolated-agent/run.ts`](https://github.com/openclaw/openclaw/blob/main/src/cron/isolated-agent/run.ts)
 
 Modes:
 
@@ -272,17 +272,17 @@ State is persisted and survives restarts.
 
 ## 12. Nodes and device runtime
 
-- node registry: `src/gateway/node-registry.ts`
-- node methods: `src/gateway/server-methods/nodes.ts`
-- node event bridge: `src/gateway/server-node-events.ts`
+- node registry: [`src/gateway/node-registry.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/node-registry.ts)
+- node methods: [`src/gateway/server-methods/nodes.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-methods/nodes.ts)
+- node event bridge: [`src/gateway/server-node-events.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-node-events.ts)
 
 Node clients connect with role `node`, advertise caps/commands, and support `node.invoke` workflows.
 Pairing and tokens gate trust and command surfaces.
 
 ## 13. Memory subsystem
 
-- manager/search/index files in `src/memory/*`
-- plugin exposure in `extensions/memory-core/index.ts`
+- manager/search/index files in [`src/memory/*`](https://github.com/openclaw/openclaw/tree/main/src/memory)
+- plugin exposure in [`extensions/memory-core/index.ts`](https://github.com/openclaw/openclaw/blob/main/extensions/memory-core/index.ts)
 
 Memory model:
 
@@ -292,9 +292,9 @@ Memory model:
 
 ## 14. Config system
 
-- config IO: `src/config/io.ts`
-- validation: `src/config/validation.ts`
-- migration: `src/config/legacy-migrate.ts`
+- config IO: [`src/config/io.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/io.ts)
+- validation: [`src/config/validation.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/validation.ts)
+- migration: [`src/config/legacy-migrate.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/legacy-migrate.ts)
 
 Features:
 
@@ -308,10 +308,10 @@ Features:
 ## 15. UI and apps
 
 - Control UI web app: `ui/`
-- macOS app: `apps/macos`
-- iOS app: `apps/ios`
-- Android app: `apps/android`
-- shared SDK/protocol: `apps/shared/OpenClawKit`
+- macOS app: [`apps/macos`](https://github.com/openclaw/openclaw/tree/main/apps/macos)
+- iOS app: [`apps/ios`](https://github.com/openclaw/openclaw/tree/main/apps/ios)
+- Android app: [`apps/android`](https://github.com/openclaw/openclaw/tree/main/apps/android)
+- shared SDK/protocol: [`apps/shared/OpenClawKit`](https://github.com/openclaw/openclaw/tree/main/apps/shared/OpenClawKit)
 
 All clients integrate through gateway protocol semantics and pairing/auth models.
 
@@ -338,18 +338,18 @@ Residual risks to manage operationally:
 
 Recommended file order for onboarding:
 
-1. `src/entry.ts`
-2. `src/cli/run-main.ts`
-3. `src/gateway/server.impl.ts`
-4. `src/gateway/server/ws-connection/message-handler.ts`
-5. `src/gateway/server-methods.ts`
-6. `src/auto-reply/reply/get-reply.ts`
-7. `src/commands/agent.ts`
-8. `src/agents/pi-embedded-runner/run.ts`
-9. `src/routing/resolve-route.ts`
-10. `src/config/sessions/store.ts`
-11. `src/plugins/loader.ts`
-12. `docs/concepts/architecture.md`
+1. [`src/entry.ts`](https://github.com/openclaw/openclaw/blob/main/src/entry.ts)
+2. [`src/cli/run-main.ts`](https://github.com/openclaw/openclaw/blob/main/src/cli/run-main.ts)
+3. [`src/gateway/server.impl.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server.impl.ts)
+4. [`src/gateway/server/ws-connection/message-handler.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server/ws-connection/message-handler.ts)
+5. [`src/gateway/server-methods.ts`](https://github.com/openclaw/openclaw/blob/main/src/gateway/server-methods.ts)
+6. [`src/auto-reply/reply/get-reply.ts`](https://github.com/openclaw/openclaw/blob/main/src/auto-reply/reply/get-reply.ts)
+7. [`src/commands/agent.ts`](https://github.com/openclaw/openclaw/blob/main/src/commands/agent.ts)
+8. [`src/agents/pi-embedded-runner/run.ts`](https://github.com/openclaw/openclaw/blob/main/src/agents/pi-embedded-runner/run.ts)
+9. [`src/routing/resolve-route.ts`](https://github.com/openclaw/openclaw/blob/main/src/routing/resolve-route.ts)
+10. [`src/config/sessions/store.ts`](https://github.com/openclaw/openclaw/blob/main/src/config/sessions/store.ts)
+11. [`src/plugins/loader.ts`](https://github.com/openclaw/openclaw/blob/main/src/plugins/loader.ts)
+12. [`docs/concepts/architecture.md`](https://github.com/openclaw/openclaw/blob/main/docs/concepts/architecture.md)
 
 ## 18. Public export note
 
